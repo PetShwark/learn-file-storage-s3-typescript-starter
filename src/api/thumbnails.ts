@@ -10,32 +10,6 @@ type Thumbnail = {
   mediaType: string;
 };
 
-const videoThumbnails: Map<string, Thumbnail> = new Map();
-
-export async function handlerGetThumbnail(cfg: ApiConfig, req: BunRequest) {
-  const { videoId } = req.params as { videoId?: string };
-  if (!videoId) {
-    throw new BadRequestError("Invalid video ID");
-  }
-
-  const video = getVideo(cfg.db, videoId);
-  if (!video) {
-    throw new NotFoundError("Couldn't find video");
-  }
-
-  const thumbnail = videoThumbnails.get(videoId);
-  if (!thumbnail) {
-    throw new NotFoundError("Thumbnail not found");
-  }
-
-  return new Response(thumbnail.data, {
-    headers: {
-      "Content-Type": thumbnail.mediaType,
-      "Cache-Control": "no-store",
-    },
-  });
-}
-
 export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
   const { videoId } = req.params as { videoId?: string };
   if (!videoId) {
@@ -61,6 +35,7 @@ export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
 
   const mediaType = file.type;
   const arrayBuffer = await file.arrayBuffer();
+  const encodedBuffer = Buffer.from(arrayBuffer).toString("base64");
   var videoMetadata = getVideo(cfg.db, videoId);
   if (!videoMetadata) {
     throw new NotFoundError("Couldn't find video");
@@ -68,11 +43,7 @@ export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
   if (videoMetadata.userID !== userID) {
     throw new UserForbiddenError("Couldn't find video");
   }
-  videoThumbnails.set(videoId, {
-    data: arrayBuffer,
-    mediaType,
-  });
-  videoMetadata.thumbnailURL = `http://localhost:${cfg.port}/api/thumbnails/${videoId}`;
+  videoMetadata.thumbnailURL = `data:${mediaType};base64,${encodedBuffer}`;
   updateVideo(cfg.db, videoMetadata);
   return respondWithJSON(200, videoMetadata);
 }
