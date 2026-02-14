@@ -4,6 +4,7 @@ import { getVideo, updateVideo } from "../db/videos";
 import type { ApiConfig } from "../config";
 import type { BunRequest } from "bun";
 import { BadRequestError, NotFoundError, UserForbiddenError } from "./errors";
+import { randomBytes } from "crypto";
 
 type Thumbnail = {
   data: ArrayBuffer;
@@ -36,7 +37,8 @@ export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
   const mediaType = file.type;
   const arrayBuffer = await file.arrayBuffer();
   const encodedBuffer = Buffer.from(arrayBuffer);
-  const thumbnailPath = `${cfg.assetsRoot}/${videoId}.${mediaType.split("/")[1]}`;
+  const videoFileName = randomBytes(32).toString("base64url");
+  const thumbnailPath = `${cfg.assetsRoot}/${videoFileName}.${mediaType.split("/")[1]}`;
   await Bun.write(thumbnailPath, encodedBuffer);
   var videoMetadata = getVideo(cfg.db, videoId);
   if (!videoMetadata) {
@@ -45,7 +47,7 @@ export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
   if (videoMetadata.userID !== userID) {
     throw new UserForbiddenError("Couldn't find video");
   }
-  videoMetadata.thumbnailURL = `http://localhost:${cfg.port}/assets/${videoId}.${mediaType.split("/")[1]}`;
+  videoMetadata.thumbnailURL = `http://localhost:${cfg.port}/assets/${videoFileName}.${mediaType.split("/")[1]}`;
   updateVideo(cfg.db, videoMetadata);
   return respondWithJSON(200, videoMetadata);
 }
