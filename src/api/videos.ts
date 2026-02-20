@@ -5,6 +5,7 @@ import { type ApiConfig } from "../config";
 import { getBearerToken, validateJWT } from "../auth";
 import { getVideo, updateVideo } from "../db/videos";
 import { BadRequestError, NotFoundError, UserForbiddenError } from "./errors";
+import { getVideoAspectRatio } from "./video-meta";
 
 function getVideoIdFromRequest(req: BunRequest): UUID {
   const { videoId } = req.params as { videoId?: UUID };
@@ -41,15 +42,17 @@ export async function handlerUploadVideo(cfg: ApiConfig, req: BunRequest) {
   if (file.type !== "video/mp4") {
     throw new BadRequestError("Invalid video format, only mp4 is allowed");
   }
-  const fileKey = `${randomBytes(32).toString("base64url")}.${file.type.split('/')[1]}`;
-  const tempFileName = `temp-${fileKey}`;
-  const tempFilePath = `${cfg.filepathRoot}/${tempFileName}`;
+  const fileName = `${randomBytes(32).toString("base64url")}.${file.type.split('/')[1]}`;
+  const tempFileName = `temp-${fileName}`;
+  const tempFilePath = `/tmp/${tempFileName}`;
   const arrayBuffer = await file.arrayBuffer();
   const bytesToWrite = arrayBuffer.byteLength;
   const bytesWritten = await Bun.write(tempFilePath, arrayBuffer);
   if (bytesWritten !== bytesToWrite) {
     throw new Error("Failed to write entire video file to disk");
   }
+  const aspectRatio = await getVideoAspectRatio(tempFilePath);
+  const fileKey = `${aspectRatio}/${fileName}`;
   const s3File = cfg.s3Client.file(fileKey, {
     type: file.type,
   }).write(arrayBuffer);

@@ -3,7 +3,29 @@ import { getBearerToken, validateJWT } from "../auth";
 import { createVideo, deleteVideo, getVideo, getVideos } from "../db/videos";
 import { respondWithJSON } from "./json";
 import { BadRequestError, NotFoundError, UserForbiddenError } from "./errors";
-import type { BunRequest } from "bun";
+import { type BunRequest, spawn } from "bun";
+
+export async function getVideoAspectRatio(filePath: string): Promise<string> {
+  const ffProbeCmdStr = `ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 ${filePath}`;
+  const ffProbeCmd = ffProbeCmdStr.split(" ");
+  const proc = spawn(ffProbeCmd);
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) {
+    throw new Error(`ffprobe failed with exit code ${exitCode}`);
+  }
+  const output = await Bun.readableStreamToText(proc.stdout);
+  const [width, height] = output.trim().split("x").map(Number);
+  if (width === 0 || height === 0) {
+    throw new Error("Invalid video dimensions");
+  }
+  if (width / height > 1.67) { // Landscape
+    return "landscape";
+  } else if (width / height < 0.6) { // Portrait
+    return "portrait";
+  } else { // Other
+    return "other";
+  }
+}
 
 export async function handlerVideoMetaCreate(cfg: ApiConfig, req: Request) {
   const token = getBearerToken(req.headers);
