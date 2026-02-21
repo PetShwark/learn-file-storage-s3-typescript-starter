@@ -5,6 +5,18 @@ import { respondWithJSON } from "./json";
 import { BadRequestError, NotFoundError, UserForbiddenError } from "./errors";
 import { type BunRequest, spawn } from "bun";
 
+export async function processVideoForFastStart(inputFilePath: string): Promise<string> {
+  const outputFilePath = inputFilePath.replace(/(\.\w+)$/, "-processed$1");
+  const ffmpegCmdStr = `ffmpeg -i ${inputFilePath} -c:v libx264 -movflags +faststart -map_metadata 0 -codec copy -f mp4 ${outputFilePath}`;
+  const ffmpegCmd = ffmpegCmdStr.split(" ");
+  const proc = await spawn(ffmpegCmd);
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) {
+    throw new Error(`ffmpeg failed with exit code ${exitCode}`);
+  }
+  return outputFilePath;
+}
+
 export async function getVideoAspectRatio(filePath: string): Promise<string> {
   const ffProbeCmdStr = `ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 ${filePath}`;
   const ffProbeCmd = ffProbeCmdStr.split(" ");

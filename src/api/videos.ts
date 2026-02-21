@@ -5,7 +5,7 @@ import { type ApiConfig } from "../config";
 import { getBearerToken, validateJWT } from "../auth";
 import { getVideo, updateVideo } from "../db/videos";
 import { BadRequestError, NotFoundError, UserForbiddenError } from "./errors";
-import { getVideoAspectRatio } from "./video-meta";
+import { getVideoAspectRatio, processVideoForFastStart } from "./video-meta";
 
 function getVideoIdFromRequest(req: BunRequest): UUID {
   const { videoId } = req.params as { videoId?: UUID };
@@ -53,10 +53,14 @@ export async function handlerUploadVideo(cfg: ApiConfig, req: BunRequest) {
   }
   const aspectRatio = await getVideoAspectRatio(tempFilePath);
   const fileKey = `${aspectRatio}/${fileName}`;
+  const processedFilePath = await processVideoForFastStart(tempFilePath);
+  // Get a new array buffer for the processed file since the original one is still in use by ffmpeg
+  const processedArrayBuffer = await Bun.file(processedFilePath).arrayBuffer();
   const s3File = cfg.s3Client.file(fileKey, {
     type: file.type,
-  }).write(arrayBuffer);
+  }).write(processedArrayBuffer);
   await Bun.file(tempFilePath).delete(); // clean up temp file
+  await Bun.file(processedFilePath).delete(); // clean up processed file
   if (!s3File) {
     throw new Error("Failed to create S3 file from uploaded video");
   }
