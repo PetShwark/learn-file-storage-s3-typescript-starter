@@ -22,7 +22,7 @@ const filepathRoot = envOrThrow("FILEPATH_ROOT");
 const assetsRoot = envOrThrow("ASSETS_ROOT");
 const s3Bucket = envOrThrow("S3_BUCKET");
 const s3Region = envOrThrow("S3_REGION");
-const s3CfDistribution = envOrThrow("S3_CF_DISTRO");
+const s3CfDistribution = envOrThrow("S3_CF_DISTRIBUTION");
 const port = envOrThrow("PORT");
 
 const db = newDatabase(pathToDB);

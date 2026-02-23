@@ -5,7 +5,7 @@ import { type ApiConfig } from "../config";
 import { getBearerToken, validateJWT } from "../auth";
 import { getVideo, updateVideo } from "../db/videos";
 import { BadRequestError, NotFoundError, UserForbiddenError } from "./errors";
-import { dbVideoToSignedVideo, getVideoAspectRatio, processVideoForFastStart } from "./video-meta";
+import { getVideoAspectRatio, processVideoForFastStart } from "./video-meta";
 
 function getVideoIdFromRequest(req: BunRequest): UUID {
   const { videoId } = req.params as { videoId?: UUID };
@@ -64,7 +64,7 @@ export async function handlerUploadVideo(cfg: ApiConfig, req: BunRequest) {
   if (!s3File) {
     throw new Error("Failed to create S3 file from uploaded video");
   }
-  videoMetadata.videoURL = `${fileKey}`;
+  videoMetadata.videoURL = `https://${cfg.s3CfDistribution}/${fileKey}`;
   updateVideo(cfg.db, videoMetadata);
-  return respondWithJSON(200, dbVideoToSignedVideo(cfg, videoMetadata));
+  return respondWithJSON(200, videoMetadata);
 }
